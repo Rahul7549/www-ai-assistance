@@ -8,60 +8,64 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm run dev      # Start dev server (http://localhost:3000)
-npm run build    # Production build
+npm run build    # Production build (also the main type-check)
 npm run start    # Start production server
 npm run lint     # ESLint (flat config, eslint.config.mjs)
 ```
 
-No test framework is configured.
+No test framework is configured. The app needs the Express backend (`../api-ai-assistance`, port 3001) running for anything past the login page.
 
 ## Architecture
 
-**Next.js 16** app using the App Router with React 19, TypeScript, and Tailwind CSS v4 (via `@tailwindcss/postcss` plugin — no `tailwind.config` file; use CSS-based configuration in `globals.css`).
+**Next.js 16** App Router, React 19, TypeScript, Tailwind CSS v4 (via `@tailwindcss/postcss`; there's no `tailwind.config`, so configuration lives in `app/globals.css`, which also loads `@tailwindcss/typography`). Path alias: `@/*` → project root. Nearly everything is a client component (`"use client"`), and auth state lives in `localStorage`, so server components can't see the user.
 
-Path alias: `@/*` maps to the project root.
+### Routing and auth gating
 
-### Routing
+- `app/layout.tsx` wraps the whole app in `AuthProvider` (`app/lib/auth-context.tsx`).
+- `app/(auth)/`: `/login` and the multi-step `/registration` wizard (framer-motion transitions).
+- `app/(protected)/`: its `layout.tsx` redirects to `/login` when `useAuth()` has no user. It contains `/` (Sidebar + ChatArea) and `/voice-assistance`.
+- `/` wraps its tree in `ConversationProvider`. **Any component that calls `useConversation()` (including `VoiceOverlay` → `useVoiceSession`) must render under that provider.**
 
-- `/` — Main chat interface (`app/page.tsx`): Sidebar + ChatArea layout
-- `/login` — Login page (`app/(auth)/login/page.tsx`)
-- `/registration` — Multi-step registration wizard (`app/(auth)/registration/page.tsx`)
-- `/voice-assistance` — Voice assistant UI (`app/voice-assistance/page.tsx`)
+### Backend communication: REST and Socket.IO
 
-Auth pages are grouped under `(auth)` route group (no layout effect, just organization).
+**REST** goes through `app/lib/api.ts` (`api.get/post/put/patch/delete/upload`). Never call `fetch` with a hardcoded URL. Paths come from `app/lib/endpoints.ts` (`ENDPOINTS`); when you add or change a backend route, update it there. `api.ts` handles:
+- the base URL from `NEXT_PUBLIC_API_BASE_URL`
+- Bearer tokens from `localStorage` (`accessToken` / `refreshToken`)
+- proactive refresh when the JWT expires within 60s, and a retry after a 401. Concurrent refreshes are de-duplicated through a shared promise.
+- a hard redirect to `/login` when refresh fails
 
-### Component structure
+The backend responds with `{ success, data }`, so callers read `res.data`.
 
-All shared components live in `app/_components/` (underscore prefix excludes from routing):
+**Streaming chat** uses Socket.IO through the singleton in `app/lib/socket.ts` (`getSocket` / `reconnectSocket` / `disconnectSocket`). The socket sends the current access token in its `auth` callback. `ChatArea` owns the connection lifecycle: it connects on mount and disconnects on unmount.
+- Client → server: `user_message` `{ conversationId, content, fileIds?, mode? }`, `cancel_stream`, `warm_model`.
+- Server → client: `ai_token`, `ai_done` (`{ conversationId, sourceFiles? }`), `ai_error`, `ai_searching`, `ai_image`, `pdf_ready`, `indexing_complete`, `model_ready`.
 
-- **ChatArea** — Main chat view; owns the right-side ActionPanel as a responsive drawer (fixed overlay on mobile, static sidebar on `lg:`)
-- **Sidebar** — Left nav; collapsible icon-only mode on desktop, slide-over drawer on mobile
-- **ChatInput** — Message input bar with attachment/mic/send buttons
-- **Message** — Chat bubble (user vs assistant styling)
-- **ActionPanel** — Tool shortcuts panel (Search Web, YouTube, Summarize, Write Email)
-- **ChatItem** — Single chat history list item
-- **Header** — Top header bar (currently commented out in layout)
-- **UserProfile** — User avatar + plan display
+Message flow in `ChatArea`: append the user message plus a placeholder assistant message with `id: "streaming"`, append each `ai_token` to it, then on `ai_done` reload the full message list from the REST API (that list is the source of truth) and refresh the conversation list. When there's no selected conversation, `ChatArea` creates one over REST first and sets `skipLoadRef` so the selection change doesn't wipe the optimistic messages.
+
+### Conversation state
+
+`ConversationProvider` loads the user's first assistant on mount, or creates a default "Nova" assistant if there isn't one. It then lists that assistant's conversations and tracks `selectedConversationId`. The single-assistant-per-user assumption runs through the UI.
+
+### Voice
+
+There are two voice paths:
+- **In-chat voice overlay** (`VoiceOverlay` → `hooks/useVoiceSession` → `voice/VoiceSession.ts`): `VoiceSession` is a plain TS class implementing a state machine (`IDLE | LISTENING | PROCESSING | SPEAKING | MUTED | ERROR`) on top of the browser Web Speech API (SpeechRecognition + speechSynthesis). The hook mirrors its state into React through an `onChange` snapshot and bridges it to the socket, sending `mode: "voice"`. Voice names map to native browser voices via `VOICE_MAP`.
+- **`/voice-assistance` page**: a standalone page that manages its own socket listeners.
+
+Design and technical background: `docs/superpowers/specs/2026-07-13-voice-chat-design.md` and `docs/voice-chat-technical-reference.html`.
+
+### Components
+
+Shared components live in `app/_components/` (the underscore keeps them out of routing). Chat message rendering is in `app/_components/chat/`: `MessageBubble` dispatches to `UserMessage` / `AssistantMessage`, and `AssistantMessage` renders markdown with `react-markdown`, using `CodeBlock` (`react-syntax-highlighter`), `FileChip` and `PdfPreviewCard`.
 
 ### Styling
 
-Dark theme only. Design tokens are CSS custom properties in `globals.css` (`--bg-primary`, `--bg-secondary`, `--primary`, `--text-*`, etc.). Components use a mix of these variables and Tailwind utility classes. Glass-morphism card style via `.glass-card` class.
-
-### Key dependencies
-
-- **framer-motion** — Page transitions (registration wizard) and voice assistant animations
-- **lucide-react** — All icons
-- **Inter** font loaded via `next/font/google` in root layout
-
-### API layer
-
-Separate Express backend at `../api-ai-assistance` (port 3001). Auth endpoints: `/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout`.
-
-Use `app/lib/api.ts` for all backend calls — never hardcode the base URL. Import as `import { api } from "@/app/lib/api"`.
+The app has a dark theme only. Design tokens are CSS custom properties in `globals.css` (`--bg-*`, `--text-*`, `--primary*`). Components mix these variables with Tailwind utilities, and glass cards use `.glass-card`. Icons come from `lucide-react`, and the font is Inter via `next/font/google`.
 
 ### Environment
 
-- `.env.development` — points to `http://localhost:3001` (local Express server)
-- `.env.production` — points to deployed backend URL
-- `.env.example` — committed template showing required variables
-- `NEXT_PUBLIC_` prefix = accessible in browser; without prefix = server-only
+`NEXT_PUBLIC_API_BASE_URL` is the only variable (see `.env.example`). `.env.development` points it at `http://localhost:3001`, and `.env.production` points it at the deployed backend.
+
+### Planning docs
+
+Feature specs and implementation plans are in `docs/superpowers/specs/` and `docs/superpowers/plans/`, and the roadmap is in `docs/feature-roadmap.md`. Check the relevant spec before changing a feature that has one.
