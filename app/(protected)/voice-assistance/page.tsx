@@ -206,7 +206,7 @@ const VoiceAssistant = () => {
 
         {/* Back button */}
         <button
-          onClick={() => router.push("/")}
+          onClick={() => router.push("/chat")}
           className="absolute top-6 left-6 p-2 bg-white/5 rounded-full border border-white/10 text-gray-400 hover:text-white transition-colors z-10"
         >
           <ArrowLeft size={18} />
@@ -347,7 +347,7 @@ const VoiceAssistant = () => {
             )}
           </button>
           <button
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/chat")}
             className="p-4 bg-white/5 rounded-full border border-white/10 text-gray-400 hover:text-white"
           >
             <ArrowLeft size={22} />

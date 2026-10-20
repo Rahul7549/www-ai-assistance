@@ -9,7 +9,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.replace("/");
+      router.replace("/chat");
     }
   }, [isLoading, user, router]);
 

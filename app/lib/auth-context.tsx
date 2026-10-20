@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("refreshToken", res.data.token.refreshToken);
 
     setUser(res.data.user);
-    router.replace("/");
+    router.replace("/chat");
   }, [router]);
 
   const logout = useCallback(async () => {
