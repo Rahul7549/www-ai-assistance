@@ -1,5 +1,6 @@
 "use client"
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Bot, MessageSquare, Zap, Mic, Database } from 'lucide-react';
 import { useAuth } from '@/app/lib/auth-context';
 
@@ -10,11 +11,13 @@ const LoginPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [info, setInfo] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const submitLogin = async (e: React.SubmitEvent<HTMLFormElement>) => {
+    const submitLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError('');
+        setInfo('');
         setLoading(true);
 
         try {
@@ -25,6 +28,9 @@ const LoginPage = () => {
             setLoading(false);
         }
     };
+
+    const comingSoon = (what: string) =>
+        setInfo(`${what} is coming soon — log in with your email for now.`);
 
     return (
         <main className="flex flex-col lg:flex-row gap-6 w-full min-h-screen p-4 md:p-[30px] bg-[#020617] text-white font-sans">
@@ -64,9 +70,6 @@ const LoginPage = () => {
                             <div className="absolute top-0 left-1/2 w-2 h-2 bg-indigo-400 rounded-full animate-ping" />
                         </div>
                     </div>
-
-
-
 
                     {/* Feature Grid with Icons */}
 
@@ -114,6 +117,11 @@ const LoginPage = () => {
                                 {error}
                             </div>
                         )}
+                        {info && (
+                            <div className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-sm px-4 py-3 rounded-xl">
+                                {info}
+                            </div>
+                        )}
 
                         <div>
                             <label className="block text-sm text-gray-400 mb-2">Email address</label>
@@ -129,7 +137,13 @@ const LoginPage = () => {
                         <div>
                             <div className="flex justify-between mb-2">
                                 <label className="text-sm text-gray-400">Password</label>
-                                <a href="#" className="text-sm text-indigo-400 hover:underline">Forgot password?</a>
+                                <button
+                                    type="button"
+                                    onClick={() => comingSoon('Password reset')}
+                                    className="text-sm text-indigo-400 hover:underline cursor-pointer"
+                                >
+                                    Forgot password?
+                                </button>
                             </div>
                             <input
                                 type="password"
@@ -157,17 +171,25 @@ const LoginPage = () => {
                         </span>
                     </div>
 
-                    {/* Social Buttons */}
+                    {/* Social Buttons (SSO backend not wired yet — honest placeholder) */}
                     <div className="flex gap-4 mb-8">
                         {['Google', 'GitHub', 'Apple'].map((platform) => (
-                            <button key={platform} className="flex-1 flex items-center justify-center gap-2 bg-white/5 border border-white/10 py-2 rounded-xl hover:bg-white/10 transition-colors">
+                            <button
+                                key={platform}
+                                type="button"
+                                onClick={() => comingSoon(`${platform} sign-in`)}
+                                className="flex-1 flex items-center justify-center gap-2 bg-white/5 border border-white/10 py-2 rounded-xl hover:bg-white/10 transition-colors"
+                            >
                                 <span className="text-sm font-medium">{platform}</span>
                             </button>
                         ))}
                     </div>
 
                     <p className="text-center text-gray-400">
-                        Don't have an account? <a href="#" className="text-indigo-400 hover:underline">Create one</a>
+                        Don&apos;t have an account?{' '}
+                        <Link href="/registration" className="text-indigo-400 hover:underline">
+                            Create one
+                        </Link>
                     </p>
                 </div>
             </section>

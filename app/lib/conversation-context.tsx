@@ -9,6 +9,14 @@ interface Assistant {
   name: string;
   avatar: string;
   personality: string;
+  voiceId?: string;
+}
+
+export interface AssistantUpdate {
+  name?: string;
+  avatar?: string;
+  personality?: string;
+  voiceId?: string;
 }
 
 interface Conversation {
@@ -27,6 +35,7 @@ interface ConversationContextValue {
   deleteConversation: (id: string) => Promise<void>;
   refreshConversations: () => Promise<void>;
   renameAssistant: (newName: string) => Promise<void>;
+  updateAssistant: (changes: AssistantUpdate) => Promise<void>;
 }
 
 const ConversationContext = createContext<ConversationContextValue | null>(null);
@@ -118,6 +127,15 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     }
   }, [assistant]);
 
+  const updateAssistant = useCallback(async (changes: AssistantUpdate) => {
+    if (!assistant) return;
+    const res = await api.put<{ success: boolean; data: Assistant }>(
+      ENDPOINTS.assistants.update(assistant.id),
+      changes
+    );
+    setAssistant(res.data);
+  }, [assistant]);
+
   return (
     <ConversationContext.Provider
       value={{
@@ -129,6 +147,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         deleteConversation,
         refreshConversations,
         renameAssistant,
+        updateAssistant,
       }}
     >
       {children}

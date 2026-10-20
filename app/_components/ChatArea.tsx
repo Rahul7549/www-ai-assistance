@@ -6,11 +6,13 @@ import StreamingIndicator from "./chat/StreamingIndicator";
 import ActionPanel from "./ActionPanel";
 import ChatInput from "./ChatInput";
 import VoiceOverlay from "./VoiceOverlay";
+import PersonalizeCard from "./PersonalizeCard";
 import { getSocket, disconnectSocket } from "@/app/lib/socket";
 import { api } from "@/app/lib/api";
 import { ENDPOINTS } from "@/app/lib/endpoints";
 import { useConversation } from "@/app/lib/conversation-context";
-import { ChevronDown, MessageSquare, PencilIcon, CheckIcon, X, Menu, PenSquare } from "lucide-react";
+import { ChevronDown, MessageSquare, PencilIcon, CheckIcon, X, Menu, PenSquare, LogOut } from "lucide-react";
+import { useAuth } from "@/app/lib/auth-context";
 
 export interface PdfAttachment {
   fileName: string;
@@ -71,6 +73,14 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
     refreshConversations,
     renameAssistant,
   } = useConversation();
+
+  const { logout } = useAuth();
+
+  // Show the deferred personalization card once the user has had a real
+  // first exchange (a non-empty assistant reply exists).
+  const hasAssistantReply = messages.some(
+    (m) => m.role === "assistant" && m.id !== "streaming" && m.content.trim().length > 0
+  );
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -383,6 +393,13 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
           >
             <MessageSquare size={20} />
           </button>
+          <button
+            onClick={logout}
+            title="Log out"
+            className="p-2 rounded-lg text-gray-400 hover:bg-red-500/10 hover:text-red-400 transition-colors cursor-pointer"
+          >
+            <LogOut size={20} />
+          </button>
         </div>
       </header>
 
@@ -460,6 +477,14 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
             className="lg:hidden p-2 text-gray-400 hover:text-white border border-white/10 rounded-lg"
           >
             <MessageSquare size={20} />
+          </button>
+          <button
+            onClick={logout}
+            title="Log out"
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white border border-white/10 hover:border-red-500/40 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+          >
+            <LogOut size={18} />
+            <span className="hidden lg:inline">Logout</span>
           </button>
         </div>
       </header>
@@ -563,7 +588,7 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
         <aside
           className={`
             fixed inset-y-0 right-0 z-50 w-72 bg-bg-deep border-white/10 p-6 transition-transform duration-300 ease-in-out
-            lg:relative lg:translate-x-0 lg:block lg:w-64 lg:border-l-white/5
+            lg:relative lg:z-auto lg:translate-x-0 lg:block lg:w-64 lg:border-l-white/5
             ${isRightPanelOpen ? "translate-x-0 shadow-2xl bg-[var(--bg-primary)]" : "translate-x-full"}
           `}
         >
@@ -586,6 +611,8 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
           />
         )}
       </main>
+
+      <PersonalizeCard visible={hasAssistantReply && !isVoiceMode} />
     </div>
   );
 }

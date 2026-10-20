@@ -373,6 +373,22 @@ textarea {
   40% { opacity: 1; transform: scale(1); }
 }
 
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-\[fadeInUp_0\.35s_ease\] { animation: none; }
+}
+
 /* ---------- RESPONSIVE ---------- */
 @media (max-width: 1200px) {
   .grid-3 {
